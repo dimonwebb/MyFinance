@@ -1,0 +1,44 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.learn2crack.recyclerswipeview.MainActivity">
+
+    <item
+        android:id="@+id/menu_sources"
+        android:orderInCategory="1"
+        android:title="Счета"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_transactions"
+        android:orderInCategory="2"
+        android:title="Транзакции"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_history_graph"
+        android:orderInCategory="3"
+        android:title="История"
+        app:showAsAction="always" />
+
+    <item
+        android:id="@+id/menu_stats"
+        android:orderInCategory="4"
+        android:title="Сальдо"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_rescan_sms"
+        android:orderInCategory="5"
+        android:visible="false"
+        android:title="Перегрузить SMS"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_reload_stocks"
+        android:orderInCategory="6"
+        android:visible="false"
+        android:title="Загрузить валюты"
+        app:showAsAction="never" />
+
+</menu>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Мои финансы</string>
+    <string name="menu_sources">Счета</string>
+    <string name="menu_transactions">Транзакции</string>
+</resources>
