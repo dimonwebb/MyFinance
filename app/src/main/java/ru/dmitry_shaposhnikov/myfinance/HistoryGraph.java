@@ -32,6 +32,7 @@ public class HistoryGraph extends AppCompatActivity {
     private DBHelper dbHelper;
     private SQLiteDatabase db;
     private Map<Integer, TreeMap<Long,Float>> stock_prices = new LinkedHashMap<Integer, TreeMap<Long,Float>>();
+    private Map<Integer, Float> amount_by_source = new LinkedHashMap<Integer, Float>();
     private SimpleDateFormat dayf = new SimpleDateFormat("yyyy-MM-dd");
     private SimpleDateFormat datef;
     private LineChart graph;
@@ -55,6 +56,22 @@ public class HistoryGraph extends AppCompatActivity {
         // Read stock prices
 
         read_stock_prices();
+
+        // Read first transactions
+
+        // If we want to determine the first day
+        //Cursor cd = db.rawQuery("SELECT julianday('now') - julianday( MIN(datetime) ) as days FROM transactions", null);
+        //if( cd.moveToFirst() ) {
+        //    days_count = cd.getInt(cd.getColumnIndex("days")) + 2;
+        //}
+
+        Cursor ctr = db.rawQuery("SELECT *, MAX(datetime) as max FROM transactions WHERE datetime < datetime('now', '-"+String.valueOf(days_count-1)+" days') GROUP BY source", null);
+        if (ctr.moveToFirst()) {
+            do {
+                amount_by_source.put(ctr.getInt(ctr.getColumnIndex("source")), ctr.getFloat(ctr.getColumnIndex("amount")));
+            } while (ctr.moveToNext());
+        }
+        ctr.close();
 
         // Generate colors palette
 
@@ -193,6 +210,10 @@ public class HistoryGraph extends AppCompatActivity {
             ArrayList<Entry> series = new ArrayList<Entry>();
 
             float cur_price = -1;
+
+            if( amount_by_source.containsKey(source_ids.get(s)) ) {
+                cur_price = amount_by_source.get(source_ids.get(s));
+            }
 
             for( int d = 0; d < days_count; d++ ) {
 

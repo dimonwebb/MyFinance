@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.format.DateUtils;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.CheckBox;
@@ -23,8 +24,15 @@ import com.github.mikephil.charting.data.BarData;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Saldo extends AppCompatActivity {
 
@@ -32,9 +40,15 @@ public class Saldo extends AppCompatActivity {
     private SQLiteDatabase db;
     private BarChart graph;
     DecimalFormat df;
+    private Map<Integer, TreeMap<Long,Float>> stock_prices = new LinkedHashMap<Integer, TreeMap<Long,Float>>();
+    private Map<Integer, Float> money_in_source = new LinkedHashMap<Integer, Float>();
+    private Map<Integer, Integer> source_currency = new LinkedHashMap<Integer, Integer>();
+    private Map<String, LinkedHashMap<String,Float>> money_in_month = new LinkedHashMap<String, LinkedHashMap<String, Float>>();
+    SimpleDateFormat datetime_format = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+    SimpleDateFormat month_format = new SimpleDateFormat("yyyy-MM");
+    SimpleDateFormat day_format = new SimpleDateFormat("yyyy-MM-dd");
 
-    private boolean group_by_days = true;
-    private boolean group_by_source = false;
+    private boolean remove_replies = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +60,10 @@ public class Saldo extends AppCompatActivity {
         dbHelper = new DBHelper(this);
         db = dbHelper.getWritableDatabase();
 
+        // Read stock prices
+
+        read_stock_prices();
+
         // Numbers format
 
         DecimalFormatSymbols symbols = new DecimalFormatSymbols();
@@ -55,22 +73,22 @@ public class Saldo extends AppCompatActivity {
 
         // CheckBox
 
-        ((CheckBox)findViewById(R.id.group_by_day)).setOnClickListener(new OnClickListener() {
+        ((CheckBox)findViewById(R.id.remove_replies)).setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                if( group_by_days ) {
-                    group_by_days = false;
-                    ((CheckBox)findViewById(R.id.group_by_day)).setChecked(false);
+                if( remove_replies ) {
+                    remove_replies = false;
+                    ((CheckBox)findViewById(R.id.remove_replies)).setChecked(false);
                 } else {
-                    ((CheckBox)findViewById(R.id.group_by_day)).setChecked(true);
-                    group_by_days = true;
+                    ((CheckBox)findViewById(R.id.remove_replies)).setChecked(true);
+                    remove_replies = true;
                 }
                 UpdateGraph();
             }
         });
 
-        ((TextView)findViewById(R.id.group_by_day_text)).setOnClickListener(new OnClickListener() {
+        ((TextView)findViewById(R.id.remove_replies_text)).setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
-                ((CheckBox)findViewById(R.id.group_by_day)).callOnClick();
+                ((CheckBox)findViewById(R.id.remove_replies)).callOnClick();
             }
         });
 
@@ -87,64 +105,112 @@ public class Saldo extends AppCompatActivity {
     public void UpdateGraph() {
 
         //----------------------------------------
-        // Query
+        // Read sources
 
-        String gr_str1, gr_str2, gr_str3 = "";
-
-        if( group_by_days ) {
-            gr_str1 = "strftime('%Y-%m-%d',t3.datetime)";
-            gr_str2 = "tr6.day";
-        } else {
-            gr_str1 = "t3.id";
-            gr_str2 = "tr6.id";
+        Cursor cs = db.query("sources", new String[]{"id","name","currency"}, null, null, null, null, null);
+        if (cs.moveToFirst()) {
+            do {
+                source_currency.put(cs.getInt(cs.getColumnIndex("id")),cs.getInt(cs.getColumnIndex("currency")));
+            } while (cs.moveToNext());
         }
+        cs.close();
 
-        if( group_by_source ) {
-            gr_str3 = "tr4.source, ";
+        //----------------------------------------
+        // Read transactions
+
+        money_in_source.clear();
+        money_in_month.clear();
+        String last_month = "";
+        String last_day = "";
+        LinkedHashMap<String, Float> month_row = new LinkedHashMap<String, Float>();
+        ArrayList<Float> intraday_money = new ArrayList<>();
+
+        Cursor c = db.query("transactions", null, null, null, null, null, "datetime");
+
+        if (c.moveToFirst()) {
+            do {
+
+                int source_id = c.getInt(c.getColumnIndex("source"));
+
+                // Date
+
+                Date date;
+
+                try {
+                    date = datetime_format.parse(c.getString(c.getColumnIndex("datetime")));
+                } catch (ParseException e) {
+                    date = new Date();
+                }
+
+                // Money delta
+
+                float money_delta;
+                float money_now = c.getFloat(c.getColumnIndex("amount"));
+
+                if( source_currency.get(source_id) > 0 ) {
+                    money_now = money_now * nearest_price(source_currency.get(source_id), date);
+                }
+
+                if( money_in_source.containsKey(source_id) ) {
+                    float money_last = money_in_source.get(source_id);
+                    money_delta = money_now - money_last;
+                } else {
+                    money_delta = money_now;
+                }
+
+                money_in_source.put(source_id, money_now);
+
+                // Day grouping
+
+                if( remove_replies ) {
+
+                    String day = day_format.format(date);
+
+                    if (!last_day.equals(day)) {
+                        if( intraday_money.size() > 1 ) {
+                            for (int i = 0; i < intraday_money.size(); i++) {
+                                int j = intraday_money.indexOf(-intraday_money.get(i));
+                                if (j >= 0) {
+                                    month_row.put("incr", month_row.get("incr") - Math.abs(intraday_money.get(i)));
+                                    month_row.put("decr", month_row.get("decr") + Math.abs(intraday_money.get(i)));
+                                    intraday_money.set(i, 0f);
+                                    intraday_money.set(j, 0f);
+                                }
+                            }
+                        }
+                        intraday_money.clear();
+                        last_day = day;
+                    }
+
+                    intraday_money.add(money_delta);
+                }
+
+                // Month grouping
+
+                String month = month_format.format(date);
+
+                if( !last_month.equals(month) ) {
+                    if( !last_month.equals("") )
+                        money_in_month.put(last_month, new LinkedHashMap<String, Float>(month_row));
+                    month_row.put("incr",0f);
+                    month_row.put("decr",0f);
+                    month_row.put("saldo",0f);
+                    last_month = month;
+                }
+
+                if( money_delta > 0 )
+                    month_row.put("incr", month_row.get("incr") + money_delta);
+
+                if( money_delta < 0 )
+                    month_row.put("decr", month_row.get("decr") + money_delta);
+
+                month_row.put("saldo", month_row.get("saldo") + money_delta);
+
+            } while (c.moveToNext());
         }
+        c.close();
 
-        Cursor ctr = db.rawQuery("SELECT tr4.source, tr4.month,\n" +
-                        "  SUM( CASE WHEN tr4.diff > 0 THEN tr4.diff ELSE 0 END ) as incr,\n" +
-                        "  SUM( CASE WHEN tr4.diff < 0 THEN tr4.diff ELSE 0 END ) as decr,\n" +
-                        "  SUM( CASE WHEN tr4.diff > 0 THEN tr4.diff ELSE 0 END ) + SUM( CASE WHEN tr4.diff < 0 THEN tr4.diff ELSE 0 END ) as saldo\n" +
-                        "FROM (\n" +
-                        "  SELECT tr6.source,\n" +
-                        "    tr6.month,\n" +
-                        "    tr6.day,\n" +
-                        "    SUM( CASE\n" +
-                        "      WHEN tr6.currency = 0 THEN tr6.diff\n" +
-                        "      WHEN k2.price IS NULL THEN tr6.diff*50\n" +
-                        "      ELSE tr6.diff*k2.price\n" +
-                        "    END ) as diff\n" +
-                        "  FROM (\n" +
-                        "    SELECT MAX(k.date) as maxdate,\n" +
-                        "    tr5.* FROM (\n" +
-                        "      SELECT s.currency, t3.*,\n" +
-                        "        SUM( t3.amount - t4.amount) as diff,\n" +
-                        "        strftime('%Y-%m-%d',t3.datetime) as day,\n" +
-                        "        strftime('%Y-%m',t3.datetime) as month\n" +
-                        "      FROM\n" +
-                        "      (SELECT t1.*,\n" +
-                        "        MAX(t2.datetime) as maxdt\n" +
-                        "        FROM transactions as t1\n" +
-                        "        LEFT JOIN transactions as t2\n" +
-                        "        ON t1.datetime > t2.datetime AND t1.source = t2.source\n" +
-                        "        WHERE t2.id IS NOT NULL\n" +
-                        "        GROUP BY t1.id\n" +
-                        "      ) t3\n" +
-                        "      LEFT JOIN transactions as t4 ON t4.datetime = t3.maxdt AND t4.source = t3.source\n" +
-                        "      LEFT JOIN sources as s on s.id = t3.source\n" +
-                        "      group by t3.source, " + gr_str1 + "\n" +
-                        "      order by t3.datetime\n" +
-                        "    ) as tr5\n" +
-                        "    LEFT JOIN stocks as k on k.currency = tr5.currency and datetime(k.date,'unixepoch') <= tr5.datetime\n" +
-                        "    GROUP BY tr5.source, tr5.id\n" +
-                        "  ) tr6\n" +
-                        "  LEFT JOIN stocks as k2 on k2.currency = tr6.currency and k2.date = tr6.maxdate\n" +
-                        "  GROUP BY " + gr_str2 + "\n" +
-                        ") tr4\n" +
-                        "GROUP BY " + gr_str3 + " tr4.month\n" +
-                        "ORDER BY tr4.month",null);
+        money_in_month.put(last_month, month_row);
 
         //----------------------------------------
         // Get data
@@ -156,19 +222,15 @@ public class Saldo extends AppCompatActivity {
 
         int i = 0;
 
-        if (ctr.moveToFirst()) {
-            do {
+        for (Map.Entry<String, LinkedHashMap<String, Float>> month_r : money_in_month.entrySet()) {
 
-                entriesMonth.add(ctr.getString(ctr.getColumnIndex("month")));
-                entriesGroup1.add(new BarEntry(ctr.getFloat(ctr.getColumnIndex("incr")),i));
-                entriesGroup2.add(new BarEntry(ctr.getFloat(ctr.getColumnIndex("decr")),i));
-                entriesGroup3.add(new BarEntry(ctr.getFloat(ctr.getColumnIndex("saldo")),i));
+            entriesMonth.add(month_r.getKey());
+            entriesGroup1.add(new BarEntry(month_r.getValue().get("incr"),i));
+            entriesGroup2.add(new BarEntry(month_r.getValue().get("decr"),i));
+            entriesGroup3.add(new BarEntry(month_r.getValue().get("saldo"),i));
 
-                i++;
-
-            } while (ctr.moveToNext());
+            i++;
         }
-        ctr.close();
 
         //----------------------------------------
         // Update graph
@@ -267,5 +329,29 @@ public class Saldo extends AppCompatActivity {
 
     }
 
+    public void read_stock_prices() {
+
+        for( int stock_id = 1; stock_id < 3; stock_id++ ) {
+
+            stock_prices.put(stock_id, new TreeMap<Long,Float>());
+
+            String year_ago_str = String.valueOf(new Date().getTime() - DateUtils.YEAR_IN_MILLIS);
+            Cursor cs = db.query("stocks", null, "currency = "+String.valueOf(stock_id)+" AND date > "+year_ago_str, null, null, null, null);
+            if (cs.moveToFirst()) {
+                do {
+                    stock_prices.get(stock_id).put(cs.getLong(cs.getColumnIndex("date")), cs.getFloat(cs.getColumnIndex("price")));
+                } while (cs.moveToNext());
+            } else {
+                stock_prices.get(stock_id).put(new Date().getTime(),Float.valueOf(50));
+            }
+            cs.close();
+
+        }
+
+    }
+
+    public Float nearest_price(int stock_id, Date date) {
+        return stock_prices.get(stock_id).floorEntry(date.getTime()).getValue();
+    }
 
 }

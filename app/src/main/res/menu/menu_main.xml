@@ -19,13 +19,13 @@
         android:id="@+id/menu_history_graph"
         android:orderInCategory="3"
         android:title="История"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
 
     <item
         android:id="@+id/menu_stats"
         android:orderInCategory="4"
         android:title="Сальдо"
-        app:showAsAction="never" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/menu_rescan_sms"

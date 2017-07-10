@@ -19,7 +19,7 @@
         android:layout_marginTop="10dp" />
 
     <CheckBox
-        android:id="@+id/group_by_day"
+        android:id="@+id/remove_replies"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginLeft="58dp"
@@ -31,12 +31,12 @@
         android:layout_marginStart="58dp" />
 
     <TextView
-        android:id="@+id/group_by_day_text"
+        android:id="@+id/remove_replies_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Группировать по дням"
+        android:text="Исключить переводы"
         android:textSize="20sp"
-        app:layout_constraintLeft_toRightOf="@+id/group_by_day"
+        app:layout_constraintLeft_toRightOf="@+id/remove_replies"
         android:layout_marginLeft="8dp"
         android:layout_marginRight="8dp"
         app:layout_constraintRight_toRightOf="parent"
@@ -46,54 +46,67 @@
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp" />
 
-    <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/budget_table"
+    <ScrollView
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:stretchColumns="*"
+        android:layout_height="280dp"
         android:layout_marginTop="20dp"
         android:layout_marginLeft="5dp"
         android:layout_marginRight="5dp"
-        app:layout_constraintTop_toBottomOf="@+id/group_by_day_text"
+        app:layout_constraintTop_toBottomOf="@+id/remove_replies_text"
         app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent">
+        app:layout_constraintRight_toRightOf="parent"
+        android:scrollbars="none"
+        android:layout_weight="1"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintVertical_bias="0.0">
 
-        <TableRow
+        <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/budget_table"
+            android:layout_width="fill_parent"
+            android:stretchColumns="*"
             android:layout_height="wrap_content"
-            android:layout_width="match_parent"
-            android:gravity="center"
-            android:padding="0.5dp"
-            android:background="@drawable/border">
-            <TextView
-                android:layout_width="fill_parent"
-                android:text="Месяц"
-                android:textStyle="bold"
-                android:padding="3dip"
-                android:gravity="center"
-                android:background="@drawable/border"/>
-            <TextView
-                android:layout_width="fill_parent"
-                android:text="Приход"
-                android:textStyle="bold"
-                android:padding="3dip"
-                android:gravity="center"
-                android:background="@drawable/border"/>
-            <TextView
-                android:layout_width="fill_parent"
-                android:text="Расход"
-                android:textStyle="bold"
-                android:padding="3dip"
-                android:gravity="center"
-                android:background="@drawable/border"/>
-            <TextView
-                android:layout_width="fill_parent"
-                android:text="Сальдо"
-                android:textStyle="bold"
-                android:padding="3dip"
-                android:gravity="center"
-                android:background="@drawable/border"/>
-        </TableRow>
+            android:isScrollContainer="true">
 
-    </TableLayout>
+            <TableRow
+                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:gravity="center"
+                android:padding="0.5dp"
+                android:background="@drawable/border">
+                <TextView
+                    android:layout_width="fill_parent"
+                    android:text="Месяц"
+                    android:textStyle="bold"
+                    android:padding="3dip"
+                    android:gravity="center"
+                    android:background="@drawable/border"/>
+                <TextView
+                    android:layout_width="fill_parent"
+                    android:text="Приход"
+                    android:textStyle="bold"
+                    android:padding="3dip"
+                    android:gravity="center"
+                    android:background="@drawable/border"/>
+                <TextView
+                    android:layout_width="fill_parent"
+                    android:text="Расход"
+                    android:textStyle="bold"
+                    android:padding="3dip"
+                    android:gravity="center"
+                    android:background="@drawable/border"/>
+                <TextView
+                    android:layout_width="fill_parent"
+                    android:text="Сальдо"
+                    android:textStyle="bold"
+                    android:padding="3dip"
+                    android:gravity="center"
+                    android:background="@drawable/border" />
+            </TableRow>
+
+        </TableLayout>
+
+    </ScrollView>
 
 </android.support.constraint.ConstraintLayout>
