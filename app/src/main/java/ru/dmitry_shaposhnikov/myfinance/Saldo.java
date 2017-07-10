@@ -351,7 +351,11 @@ public class Saldo extends AppCompatActivity {
     }
 
     public Float nearest_price(int stock_id, Date date) {
-        return stock_prices.get(stock_id).floorEntry(date.getTime()).getValue();
+        Map.Entry<Long,Float> entry = stock_prices.get(stock_id).floorEntry(date.getTime());
+        if( entry == null ) {
+            return Float.valueOf(50);
+        } else {
+            return entry.getValue();
+        }
     }
-
 }
